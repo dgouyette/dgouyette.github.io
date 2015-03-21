@@ -1,0 +1,277 @@
+---
+layout: post
+title:  "Programmation fonctionnelle : utiliser le type Option dans les applications java d'aujourd'hui"
+date:   2013-05-24 09:00:00
+categories: Programmation fonctionnelle
+---
+
+
+Cet article va vous présenter le type option, et ses différents cas d'usage.
+
+Il sera illustré d'exemples mis en place sur un fork du "java petstore d'Antonio GONCALVES":http://en.wikipedia.org/wiki/Option_type
+
+h2. Définition
+
+*Option* : type polymorphique représentant l'encapsulation d'une valeur optionnelle. Ce type est utilisé en retour de méthode pour signifier que celle-ci retourne ou non une *valeur significative*.
+
+Deux valeurs sont possibles :
+* *None*, absence de valeur,
+* *Some(valeur)*, présence de valeur
+
+h2. Librairies
+
+Il y a actuellement, à ma connaissance, deux librairies java fournissant une implémentation du type optional :
+* "functionnaljava":http://functionaljava.org/examples/1.5/#Option.bind
+* "Guava":http://docs.guava-libraries.googlecode.com/git/javadoc/com/google/common/base/Optional.html depuis la version 10
+
+Il est également possible d'implémenter soit même cette classe qui n'est pas très compliquée.
+
+J'utiliserais pour illustrer mes exemples la librarie functionnal java, celle-ci étant plus lisible à mon goût
+
+h2. Option et services java
+
+Prenons en exemple une partie du code du service CatalogService du petstore d'Antonio :
+
+{% highlight java %}
+  public Category findCategory(Long categoryId) {
+     if (categoryId == null){
+         throw new ValidationException("Invalid category id");
+     }
+     return em.find(Category.class, categoryId);
+}
+{% endhighlight %}
+
+
+
+Dans ce code, on recherche une catégorie par son Id.
+Le type de retour est *Category*.
+Cette méthode ne lève pas de *checked Exception*.
+Si em.find ne trouve pas d'entité on peut voir dans la javadoc, qu'un null sera retourné.
+
+Si l'utilisateur de cette méthode n'est pas vigilant, et essaye d'accèder à la description de la Category, exemple :
+
+{% highlight java %}
+@Test
+public void whenCategoryNotFoundShouldThrowNPE() {
+    Category category = catalogService.findCategory(999L);
+    String description = category.getDescription();
+}
+{% endhighlight %}
+
+
+Il va se retrouver avec un "joli" NPE :
+
+{% highlight java %}
+whenCategoryNotFoundShouldThrowNPE(org.agoncal.application.petstore.service.CatalogServiceIT)  Time elapsed: 0.065 sec  <<< ERROR!
+java.lang.NullPointerException
+	at org.agoncal.application.petstore.service.CatalogServiceIT.whenCategoryNotFoundShouldThrowNPE(CatalogServiceIT.java:40)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:601)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:45)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:15)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:42)
+	at org.jboss.arquillian.junit.Arquillian$6$1.invoke(Arquillian.java:270)
+	at org.jboss.arquillian.container.test.impl.execution.LocalTestExecuter.execute(LocalTestExecuter.java:60)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:601)
+	at org.jboss.arquillian.core.impl.ObserverImpl.invoke(ObserverImpl.java:94)
+	at org.jboss.arquillian.core.impl.EventContextImpl.invokeObservers(EventContextImpl.java:99)
+	at org.jboss.arquillian.core.impl.EventContextImpl.proceed(EventContextImpl.java:81)
+	at org.jboss.arquillian.core.impl.ManagerImpl.fire(ManagerImpl.java:135)
+	at org.jboss.arquillian.core.impl.ManagerImpl.fire(ManagerImpl.java:115)
+	at org.jboss.arquillian.core.impl.EventImpl.fire(EventImpl.java:67)
+	at org.jboss.arquillian.container.test.impl.execution.ContainerTestExecuter.execute(ContainerTestExecuter.java:38)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:601)
+	at org.jboss.arquillian.core.impl.ObserverImpl.invoke(ObserverImpl.java:94)
+{% endhighlight %}
+
+
+Voyons maintenant comment on pourrait modifier le code de cette méthode pour qu'elle soit un peu plus expressive.
+
+{% highlight java %}
+public Option<Category> findCategory(Long categoryId) {
+   if (categoryId == null)
+      throw new ValidationException("Invalid category id");
+   }
+   return Option.fromNull(em.find(Category.class, categoryId));
+}
+{% endhighlight %}
+
+
+En fonction de ce que va renvoyer em.find :
+
+*Option.fromNull(null)*, la méthode va renvoyer *None*
+*Option.fromNull(uneCategorie)*, la méthode va renvoyer *Some(uneCategorie)*
+
+L'utilisateur de cette méthode va devoir modifier son code apellant pour récupérer sa catégorie de la sorte :
+
+{% highlight java %}
+Option<Category> categoryOption = catalogService.findCategory(categoryId);
+if (categoryOption.isSome()) {
+   Category cat = categoryOption.some();
+} else {
+   ...
+}
+{% endhighlight %}
+
+
+Le code est plus verbeux, mais va indiquer explicitement à l'utilisateur de cette méthode qu'il doit gérer les deux cas. Sans l'utilisation du type option, l'utilisateur peut être amené à traiter des null sans le savoir.
+
+h2. Hibernate et le type Option
+
+Pour mettre en place le type option sur la couche de persistance, il y a deux possibilités :
+
+*Utiliser les getter & setter*
+La propriété reste identique sur l'entité, seul les getter/setters doivent évoluer de la sorte :
+
+{% highlight java %}
+public Option<String> getTelephone() {
+   return Option.fromNull(telephone);
+}
+public void setTelephone(Option<String> telephone) {
+   if (telephone.isSome()) {
+      this.telephone = telephone.some();
+   } else {
+      this.telephone = null;
+    }
+}
+{% endhighlight %}
+
+
+*Utiliser un UserType hibernate personnalisé*
+
+Voici une version résumée du code nécessaire (j'ai la version complète si besoin).
+
+{% highlight java %}
+public class OptionUserType implements UserType {
+...
+   @Override
+   public Option<? extends Object> nullSafeGet(ResultSet rs, String[] names, Object owner) throws HibernateException, SQLException {
+      return Option.fromNull(rs.getObject(names[0]));
+   }
+...
+    @Override
+    public void nullSafeSet(PreparedStatement st, Object value, int index) throws SQLException {
+        Option optionalValue = (Option) value;
+        if (optionalValue.isSome()) {
+            String stringValue = String.valueOf(optionalValue.some());
+            if (StringUtils.isNotBlank(stringValue)) {
+                st.setString(index, stringValue);
+            } else {
+                st.setString(index, null);
+            }
+        }
+    }
+}
+{% endhighlight %}
+
+La propriété de la classe devra être annotée de la sorte.
+StringOptionType est le UserType personnalisé que détaillé ci-dessus.
+
+{% highlight java %}
+@Column(nullable = true)
+@Type(type = "com.cestpasdur.usertype.StringOptionType")
+private Option<String> telephone;
+{% endhighlight %}
+
+
+h2. Utilisation avec un service REST
+
+L'utilisation du type option est également intéressante avec un service REST :
+
+{% highlight java %}
+@GET
+@Path("/category/{id}")
+@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
+public Response findCategory(@PathParam("id") Long categoryId) {
+    Option<Category> categoryOption = catalogService.findCategory(categoryId);
+    if (categoryOption.isSome()) {
+        return Response.ok(categoryOption.some()).build();
+    } else {
+        return Response.status(Response.Status.NOT_FOUND).build();
+    }
+}
+{% endhighlight %}
+
+
+Le service REST renverra une représentation d'une ressource dans le cas d'une valeur significative.
+En cas d'absence de valeur, celui-ci renverra une erreur 404, pour indiquer à l'utilisateur que la ressource n'a pas été trouvée.
+
+h2. Utilisation avec JSF2
+
+Après la couche de persistance, la couche de service, voyons maintenant son utilisation dans une IHM.
+
+L'utilisation du type option est également intéressante dans les pages web. Dans l'exemple du petstore si l'utilisateur n'a pas saisi de téléphone, je ne souhaite pas lui afficher.
+
+Exemple  :
+
+{% highlight html %}
+<!--  affichage du telephone uniquement si telephone est present -->
+<h:outputText value="#{accountController.loggedinCustomer.telephone}" rendered="#{accountController.loggedinCustomer.telephone.isSome()}">
+   <f:converter converterId="optionalConverter"/>
+</h:outputText>
+{% endhighlight %}
+
+
+
+J'ai ajouté sur le composant un converter gérant les "entrées/sorties optionnelles", cela évitera d'afficher dans le rendu html
+Some(02.31.34.XX.XX) nous souhaitons directement afficher 02.31.34.XX.XX)
+La méthode *getAsString* permettra d'afficher directement sa valeur.
+
+{% highlight java %}
+@FacesConverter(forClass = Option.class, value = "optionalConverter")
+public class OptionalConverter implements Converter {
+    @Override
+    public Object getAsObject(FacesContext facesContext, UIComponent uiComponent, String s) {
+        if (StringUtils.isNotBlank(s)) {
+            return Option.fromNull(s);
+        }
+        return Option.none();
+    }
+    @Override
+    public String getAsString(FacesContext facesContext, UIComponent uiComponent, Object o) {
+        if (o instanceof Option) {
+            Option optional = (Option) o;
+            if (optional.isSome()) {
+                return String.valueOf(optional.some());
+            } else {
+                return "";
+            }
+        }
+        return "";
+    }
+}
+{% endhighlight %}
+
+
+Dans le cas de formulaire, on utilisera également ce même converter :
+
+{% highlight java %}
+<h:inputText id="telephone" value="#{accountController.loggedinCustomer.telephone}">
+   <f:converter converterId="optionalConverter"/>
+</h:inputText>
+{% endhighlight %}
+
+
+Dans ce cas, ce sera la méthode *getAsObject* qui sera utilisée.
+
+h2. Conclusion
+
+Si comme moi vous avez déjà découvert le type Option via d'autre langages, j'espère que cet article vous aura donné une bon aperçu de ce qu'il est possible de faire avec dans une application java de gestion "standard".
+
+Dans mon équipe, nous l'avons mis en place depuis quelques temps et le constat est plutôt positif.
+
+Le contenu de cet article fera partie de "ma session au BreizhCamp":http://www.breizhcamp.org/ "Programmation fonctionnelle en java : si si..." le 13 et 14 juin 2013
+
+h2. Références
+
+"http://en.wikipedia.org/wiki/Option_type":http://en.wikipedia.org/wiki/Option_type
+"Code source sur github":https://github.com/dgouyette/agoncal-application-petstore-ee6/tree/optionnal
+"Le wrapper Optional de Guava":http://blog.developpez.com/guava/p11163/base/le_wrapper_optional_de_guava

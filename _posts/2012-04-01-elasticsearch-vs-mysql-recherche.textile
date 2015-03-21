@@ -1,0 +1,174 @@
+---
+layout: post
+title:  "Pour ma recherche, MySQL ou ElasticSearch ?"
+date:   2012-04-01 09:00:00
+categories: elasticsearch
+---
+
+
+J'ai assisté lors de la what's next 2011 à une présentation donnée par "Shay Banon":http://en.wikipedia.org/wiki/ElasticSearch sur elasticSearch, produit basé sur "Lucene":http://lucene.apache.org/.
+A l'issue de celle-ci, j'ai eu envie de tester cette technologie, pour voir si elle était aussi prometteuse qu'elle en avait l'air. Vous pouvez avoir une présentation plus détaillée dans les notes de cet article.
+
+Je suis parti d'un cas concret  : fournir un service de recherche de personne.
+
+La volumétrie, environ 10 millions d'enregistrements.
+
+Cet article présente les deux approches :
+* Recherche via MySQL,
+* Recherche via ElasticSearch.
+
+La configuration par défaut a été conservée pour elasticSearch et MySQL.
+
+h2. Machine utilisée
+
+La machine utilisée pour réaliser les tests est un "simple" portable de travail :
+Macbook pro core i7, à 2Ghz,
+8Go de RAM
+Disque SSD de 128 Go.
+
+La volumétrie initialement prévue était de 60 millions (à peu près la population française), mais la taille de mon SSD ne l'a pas permis. Mes premiers tests ont tout simplement rempli tout l'espace restant...
+
+
+h2. Jeu de données
+
+Les données ont été générées via le framework java "datafactory":http://java.dzone.com/articles/generate-test-data-datafactory. Celles-ci ont été insérées via la framework spring batch avec un pas de commit de 100.
+Vous trouvez le lien vers le repo github dans les notes de cet article.
+
+Les données ne seront pas clusterisées, que ce soit avec MySQL ou elasticsearch.
+
+h2. Recherches possibles
+
+Il devra être possible d'effectuer des recherche sur les critères suivants :
+
+* nom,
+* nom + prénom,
+* nom + prénom + code postal
+* nom + pays
+* nom + code postal
+* nom + prénom + pays
+
+h2. MySQL
+
+h4. Structure de la table
+
+{% highlight sql %}
+CREATE TABLE `personnephysique` (
+  `id` bigint(11) NOT NULL AUTO_INCREMENT,
+  `nom` varchar(255) NOT NULL,
+  `prenom` varchar(255) NOT NULL,
+  `codePostal` char(5) NOT NULL,
+  `pays` varchar(255) NOT NULL,
+  `dateNaissance` date NOT NULL,
+  PRIMARY KEY (`id`)
+)
+{% endhighlight %}
+
+
+h4. Moteur de stockage
+
+Le moteur de stockage InnoDB a été utilisé pour les tests.
+Celui-ci offre un support transactionnel même si cela augmente les temps d'accès aux données.
+
+h4. Stratégies d'index
+
+La volumétrie choisie de 10 millions d'enregistrements n'a pas été choisie par hasard.
+Si l'on se contente d'insérer ces nombreux enregistrements et de lancer un recherche sur un ou plusieurs champs, les temps de réponses du serveur de base de données seront catastrophiques, de l'ordre de 8 à 10 secondes. La base de données est alors obligée de scanner intégralement  la table afin de trouver le résultat attendu.
+
+MySQL met à disposition des *index* permettant d'accélérer ces temps de réponses.
+
+Un index MySQL est similaire à l'index d'un livre.
+Il référence les mots importants et leurs emplacements  afin de ne pas avoir à parcourir le livre (ou dans ce cas, la BSS)  son ensemble pour en trouver toutes les références.
+
+Un index peut porter sur une ou plusieurs colonnes.
+
+MySQL pour effectuer sa recherche ne peut utiliser qu'un seul index (celui qu'il estimera le plus pertinent) , il faut donc en créer plusieurs, en fonction des recherches que l'on souhaite effectuer :
+
+* KEY `nomPrenom` (`nom`,`prenom`) USING BTREE,
+* KEY `nomPrenomCodePostal` (`nom`,`prenom`,`codePostal`) USING BTREE,
+* KEY `nomPays` (`nom`,`pays`) USING BTREE,
+* KEY `nomCodePostal` (`nom`,`codePostal`) USING BTREE,
+* KEY `nomPrenomPays` (`nom`,`prenom`,`pays`) USING BTREE
+
+
+J'ai crée un schéma contenant deux tables :
+* personnephysique (table sans index),
+* personnephysiquewithindex (table avec index, moteur de stockage innodb),
+
+h4. Espace disque utilisé :
+
+Pour connaître l'espace utilisé et comment celui-ci est réparti entre stockage et index, vous pouvez utiliser la commande :
+
+{% highlight sql %}
+SHOW TABLE STATUS from schema;
+{% endhighlight %}
+
+
+h2. ElasticSearch
+
+Le client java fourni par défaut a été utilisé.
+Pour accélérer les insertions j'ai utilisé la classe bulkRequest qui permet d'effectuer des commits également toutes les 100 données insérées.
+
+Le code utilisé est également disponible sur github.
+
+
+h2. Espace disque utilisé
+
+!/images/mysql-vs-elasticsearch-espace-disque.png!
+
+Espace disque consommé :
+* Pour MySQL, il est de 550 Mo pour les données + 1,9 Go pour les index
+* Pour elasticSearch il est de 3,3 Go
+
+
+h2. Temps d'insertion
+
+!/images/mysql-vs-elasticsearch-temps-insertion.png!
+
+Les temps d'insertion ont été respectivement de  :
+
+* ElasticSearch : 23 minutes,
+* MySQL sans index : 56 minutes,
+* MySQL avec index : 228 minutess (soit 10 x  celui d'elasticsearch)
+
+h2. Temps de réponses :
+
+!/images/mysql-vs-elasticsearch-requetes.png!
+
+Le premier exemple consiste à récupérer 100 personnes :
+MySQL : 9 ms
+ElasticSearch : 5 ms
+
+Le deuxième exemple consiste à effectuer une recherche par nom limitée à 100 résultats :
+MySQL : 18ms
+ElasticSearch : 5ms
+
+Le troisième exemple consiste à effectuer une recherche sur les champs nom + prenom limitée à 100 résultats :
+MySQL : 9 ms
+ElasticSearch.
+
+h2. Conclusion
+
+Nous avons pu observer sur les 3 courbes précédentes que :
+
+ElasticSearch était 10 fois plus rapide que MySQL sur les insertions (pas de gestion des transactions)
+
+ElasticSearch était environ 2 fois plus performant sur les requêtes que MySQL avec des index pertinents.
+
+Que pour les même critères de recherche elasticSearch consommait plus d'espace disque que MySQL, cependant, la recherche est possible sur tous les champs stockés, quelque soit l'ordre des critères de recherche et leur nombre. Ce qui n'est pas vrai avec MySQL.
+
+Que l'ajout d'un index sur une table réduit considérablement les performances. Dans notre cas, les 10 millions  ont pris 5 fois moins de temps à être inséré dans une base avec index.
+
+Il peut donc être intéressant de mettre en place un "frontal" elasticSearch pour offrir un service de recherche.
+
+Et laisser la base de données gérer la persistance, les transactions, tout en conservant de bonnes performances sur les insertions.
+
+
+h2. Remerciements
+
+Je souhaite remercier "David Pilato":http://dev.david.pilato.fr qui m'a bien aidé en répondant à mes questions sur le "google group d'elasticsearchfr":https://groups.google.com/forum/?hl=fr&fromgroups#!forum/elasticsearch-fr
+
+h2. Notes :
+
+* "Interview de Shay BANNON par Nicolas MARTIGNOLE":http://www.touilleur-express.fr/2011/04/12/elasticsearch-interview-with-shay-banon/
+* "Code source sur github":https://github.com/dgouyette/recherchebench
+* "Indexs MySQL":http://dev.mysql.com/doc/refman/5.0/fr/mysql-indexes.html

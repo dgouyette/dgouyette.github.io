@@ -1,0 +1,209 @@
+---
+layout: post
+title:  "Faites parler vos logs avec logstash"
+date:   2014-05-13 09:00:00
+categories: elasticsearch
+---
+
+
+*Logstash* est un outil de de gestion de logs et d'events.
+Il permet de les collecter, les parser pour finalement les stocker.
+
+*Logstash* fait partie d'*ElasticSearch*. Il s'intègre d'ailleurs très bien avec lui.
+
+A noter que les rivières d'ElasticSearch sont dépréciées au profit d'un pipeline logstash.
+Donc n'utilisez plus les rivières pour un nouveau projet.
+
+Il est codé en *Ruby*.
+
+Nous allons dans ce premier article mettre en place notre premier "pipeline" avec LogStash.
+
+Cela consistera à prendre une entrée au clavier, la parser pour finalement renvoyer la sortie dans cette même console. Nous prendrons l'exemple d'une ligne de log venant d'une application java.
+
+h2. Schéma
+
+!/images/pipeline_input_output_logstash.png!
+
+h2. Collecte.
+
+La première étape du pipeline de lostash est la collecte des évènements ou des logs.
+Il existe de nombreux plugins de collecte :
+
+* *stdin* pour collecter les entrées au clavier,
+* *syslog* : service de journaux d'événements unix,
+* *file* : fichiers de logs
+* *jmx* ...
+
+h2. filtres
+
+Les filtres permettent d'extraire, de filter et de typer l'information d'entrée.
+
+* *grok* (méthode recommandée) : parser des chaines de caractères arbitraires, 120 patterns environs sont déjà fournis (apachelog, syslog, date...)
+* *mutate* pour effectuer des transformations sur les champs (nommage, suppression).
+* *drop* : suppression d'un évènement ...
+
+h2. codecs
+
+Les codecs peuvent être utilisés en entrée et/ou sortie. ils servent à la sérialisation/désérialisation (json par exemple, mais également multi lignes dans le cas d'exceptions java).
+
+h2. Sortie
+
+La sortie consiste à persister l'information extraite à partir de l'entrée dans un système externe. Il existe de nombreux plugins de sortie :
+
+* *stdout* : sortie console,
+* *file* : fichier de log,
+* *JIRA*,
+* *elasticSearch*...
+
+h2. La ligne de log que nous allons parser :
+
+C'est une ligne de log venant d'une application java legacy. L'objectif est d'extraire des informations d'une application existante depuis des années, mais sans avoir à la modifier.
+
+{% highlight ruby %}
+2014-04-27 15:07:44,054 INFO  c.c.r.services.PaiementService - #### paiement apres enregistrement ####Paiement{id=6606, datePaiement=Sun Apr 27 15:07:44 CEST 2014, responseCode='00', transactionId='985040', authorisationId='279217', reservationId='7476', typeCarte='AMEX', montant=9852}
+{% endhighlight %}
+
+
+h2. Grok debugger
+
+Je vous l'ai dit plus haut, le moyen le plus simple d'extraire des informations d'une chaine de caractères arbitraire est *grok*.
+Il existe une application en ligne permettant de tester votre chaine de caractère avec des patterns grok existant. Mais également de faire de la découverte (essaye de détecter les patterns de votre chaines de caractère.)
+
+"http://grokdebug.herokuapp.com/":http://grokdebug.herokuapp.com/
+
+Mais comme vous pouvez le voir sur l'image ci-dessous. Le résultat, n'est pas vraiment directement exploitable (montant = javaclass, date = uri).
+
+!/images/grok_discover.png!
+
+Cela reste un outil de découverte. Et j'ai pu observer qu'un pattern qui marche avec le grokdebugger ne fonctionnera pas forcément avec logstash :-(
+
+h2. Lostash et les tests
+
+Le meilleur moyen (selon moi) pour obtenir un pattern valide qui fonctionnera avec logstash, consiste à créer un test unitaire Ruby (ou Spec), avec votre chaine de caractère à parser, le pattern de log, et de faire des assertions sur les résultats de l'extraction attendus.
+
+
+On télécharge les sources
+
+{% highlight sh %}
+git clone https://github.com/elasticsearch/logstash.git
+{% endhighlight %}
+
+
+On ajoute un test dans spec/filters/grok.rb
+
+{% highlight ruby %}
+describe "extraire les informations de paiement d une ligne de log legacy" do
+    config <<-CONFIG
+      filter {
+        grok {
+          match => [ "message",  "%{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:loglevel}  c.c.r.services.PaiementService - #### paiement apres enregistrement ####Paiement{id=%{NUMBER:id}, datePaiement=%{DAY:day} %{MONTH:month} %{MONTHDAY:monthday} %{TIME} CEST %{YEAR}, responseCode='%{NUMBER:responseCode}', transactionId='%{NUMBER:transactionId}', authorisationId='%{NUMBER:authorisationId}', reservationId='%{NUMBER:reservationId}', typeCarte='%{WORD:typeCarte}', montant=%{NUMBER:montant}}" ]
+          singles => true
+        }
+      }
+    CONFIG
+    sample "2014-04-27 15:07:44,054 INFO  c.c.r.services.PaiementService - #### paiement apres enregistrement ####Paiement{id=6606, datePaiement=Sun Apr 27 15:07:44 CEST 2014, responseCode='00', transactionId='985040', authorisationId='279217', reservationId='7476', typeCarte='AMEX', montant=9852}" do
+      insist { subject["timestamp"] } == "2014-04-27 15:07:44,054"
+      insist { subject["loglevel"] } == "INFO"
+      insist { subject["id"] } == "6606"
+      insist { subject["day"] } == "Sun"
+      insist { subject["month"] } == "Apr"
+      insist { subject["monthday"] } == "27"
+      insist { subject["responseCode"] } == "00"
+      insist { subject["transactionId"] } == "985040"
+      insist { subject["authorisationId"] } == "279217"
+      insist { subject["reservationId"] } == "7476"
+      insist { subject["typeCarte"] } == "AMEX"
+      insist { subject["montant"] } == "9852"
+    end
+  end
+{% endhighlight %}
+
+
+Une fois que le test passe c'est gagné.
+
+Il faut s'aider des patterns disponibles à cette url :
+"https://github.com/elasticsearch/logstash/blob/master/patterns/grok-patterns":https://github.com/elasticsearch/logstash/blob/master/patterns/grok-patterns
+
+h2. Installation de logstash
+
+Je passerais rapidement sur l'installation de logstash.
+Celui ci est disponible dans les repos habituel. En ce qui me concerne la commande brew suivante a fait l'affaire :
+
+{% highlight sh %}
+brew install logstash
+{% endhighlight %}
+
+
+
+h2. La configuration complète :
+
+{% highlight ruby %}
+input { stdin { } }
+filter {
+  grok {
+    match => { "message" => "%{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:loglevel}  c.c.r.services.PaiementService - #### paiement apres enregistrement ####Paiement{id=%{NUMBER:id}, datePaiement=%{DAY:day} %{MONTH:month} %{MONTHDAY:monthday} %{TIME} CEST %{YEAR}, responseCode='%{NUMBER:responseCode}', transactionId='%{NUMBER:transactionId}', authorisationId='%{NUMBER:authorisationId}', reservationId='%{NUMBER:reservationId}', typeCarte='%{WORD:typeCarte}', montant=%{NUMBER:montant}}" }
+  }
+}
+output {
+  stdout { codec => rubydebug }
+}
+{% endhighlight %}
+
+
+h2. Lancer logstash
+
+{% highlight sh %}
+logstash agent --verbose -f javafilter.conf  --log output.log
+{% endhighlight %}
+
+
+Petite astuce pour sortir, quelque fois ctrl + c ne suffit pas, il faut ajouter un :q (comme sous VI)
+
+
+Si la ligne est correctement interprétée, vous devriez obtenir la sortie console suivante :
+
+{% highlight json %}
+{
+            "message" => "2014-04-27 15:07:44,054 INFO  c.c.r.services.PaiementService - #### paiement apres enregistrement ####Paiement{id=6606, datePaiement=Sun Apr 27 15:07:44 CEST 2014, responseCode='00', transactionId='985040', authorisationId='279217', reservationId='7476', typeCarte='AMEX', montant=9852}",
+           "@version" => "1",
+         "@timestamp" => "2014-05-13T09:36:55.783Z",
+               "host" => "mbp-de-damien-2",
+          "timestamp" => "2014-04-27 15:07:44,054",
+           "loglevel" => "INFO",
+                 "id" => "6606",
+                "day" => "Sun",
+              "month" => "Apr",
+           "monthday" => "27",
+       "responseCode" => "00",
+      "transactionId" => "985040",
+    "authorisationId" => "279217",
+      "reservationId" => "7476",
+          "typeCarte" => "AMEX",
+            "montant" => "9852"
+}
+{% endhighlight %}
+
+
+h2. Exploitation des résultats
+
+Il est très facile de changer la sortie du pipeline de stdout vers elasticsearch.
+Cela permettra ensuite facilement d'exploiter les résultats avec un kibana.
+
+Celui ci est directement intégré avec logstash. Pour le lancer il faut lancer la commande suivante :
+
+{% highlight sh %}
+./bin/logstash web
+{% endhighlight %}
+
+
+Il faut ensuite ouvrir l'URL localhost:9292
+
+Et avec un minimum de configuration, on peut rapidement obtenir des graphique de ce genre :
+
+!{{site.url}}/images/graph_kibana.png!
+
+!{{site.url}}/images/events_over_time.png!
+
+Voilà, j'espère que cette introduction à Kibana vous donnera envie de tester çà chez vous. Il est ainsi facile avec les outils logstash + elasticsearch + kibana d'extraire et de visualiser des informations de vos applications java existantes, et ce sans avoir à les modifier.
+
+Ce sont des outils que je recommande, même si les patterns m'ont donné pas mal de fil à retordre et que les sorties sont quelquefois un peu insuffisantes et obscures.

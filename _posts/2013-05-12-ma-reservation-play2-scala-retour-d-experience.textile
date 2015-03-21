@@ -1,0 +1,137 @@
+---
+layout: post
+title:  "ma-reservation.com (play2 + scala), retour d'expérience"
+date:   2013-05-12 09:00:00
+categories: scala
+---
+
+
+<div class="span4">
+!/images/ma-reservation-screenshot.png!
+</div>
+
+J'ai développé il y a quelques années "un système de réservation en ligne pour un hôtel en Guadeloupe":http://www.hotel-village-soleil.com/reservation/
+
+Cette version est basée sur les technologies classiques java / JEE :
+* Spring
+* Hibernate
+* JSF 1.2 + Richfaces.
+
+La nouvelle version du "système de réservation":http://ma-reservation.com/ disponible ici
+<br/>
+<br/>
+
+ Celle-ci propose les fonctionnalités suivantes :
+
+* sélection d'un type de bien, puis paiement en ligne (via l'API atos du crédit agricole, belle cochonnerie soit dit en passant, je parle de l'API),
+* ressources limitées via la définition d'un stock (il n'est alors plus possible de réserver de bien, s'il n'y en a plus de disponible),
+* possibilité de définir des périodes de fermetures,
+* affichage détaillé des tarifs,
+* envoi de message au partenaire.
+
+
+h2. Migration d'un projet existant vers une nouvelle technologie
+
+Cette version qui est en production depuis quelques années maintenant est éprouvée, fonctionne bien, mais elle à l'inconvénient de ne pouvoir servir qu'un seul "partenaire" à la fois. Je souhaitais depuis quelques temps créer une nouvelle version "multi-tenant", et ainsi la proposer à des hôtels, campings, bungalows (en gros toutes les petites PME  de location).
+
+J'ai utilisé (Maven & Jenkins) + Jetty en mode embedded pour le développement de cette application.
+Même si le serveur est rapide à démarrer, il faut revenir au même point dans la navigation du site (le flow de réservation comporte plusieurs pages), la session était perdue à chaque redémarrage.
+A l'époque, je connaissais pas jrebel (ou celui-ci n'existait pas encore).
+
+h2. Expérience d'un projet précédent en play 1.X
+
+J'étais donc à la recherche d'une technologie me permettant d'accélérer mon développement, car ce projet est développé sur mon temps personnel. J'avais déjà utilisé le framework play! pour réaliser un site pour une "résidence en temps partagé (Timeshare)":http://green-blue-houses.com/  J'avais alors opté pour playframework en version 1.X.
+
+* Plus de redémarrage du serveur,
+* Les vues sont écrites en groovy, le DSL est simple à utiliser,
+* La persistance basée sur JPA. La montée en compétence sur le framework a été très rapide,
+* Les tests s'exécutent dans une page web très rapidement.
+
+h2. Choix de playframework 2.0 + scala
+
+Mes développements personnels me servent à apprendre de nouvelles technologies/langages.
+Ma première expérience avec play était très positive…
+
+J'ai alors souhaité utiliser la version suivante de playFramework disponible à ce moment, c'est à dire Play! dans sa version 2.0 (version béta) pour développer la nouvelle version du site de réservation.
+Les vues étant codées en Scala, j'ai décidé de prendre Scala dans sa globlité et d'utiliser play2 uniquement en mode scala.
+
+h2. Déconvenue
+
+N'ayant jamais fait de scala, réussir à faire fonctionner mon premier CRUD n'a pas été de tout repos.
+J'ai eu beaucoup de mal avec Anorm et ses Pk[Long], le mapping doit être fait d'un côté sur les entités et ensuite sur les formulaires. Et si vous tentez de sérialiser en json un objet ayant en tant que propriété une Pk, çà ne s'invente pas.
+J'ai finalement découvert que l'on pouvait directement définir le champ id en Option[Long], n'utilise pas de «solution propriétaire» .
+
+Les tests ne s'executent plus en dans le navigateur, mais uniquement lancé via SBT en ligne de commande ou dans l'IDE.
+Dans les premières versions de play 2.0, pas de logs lors du lancement des TU (problème mémoire à l'époque référencé).
+Concernant les tests, je n'ai pas réussi à configurer deux datasources (test et run) dans le même fichier à l'instar de play 1.X.
+
+J'ai du utiliser trois fichiers différents :
+* un pour le dev,
+* un pour la prod,
+* un pour les TU.
+
+Je dois ainsi lancer l'application en précisant le fichier à utiliser
+
+{% highlight sh %}
+play -Dconfig.file=conf/dev.conf ~run
+#Veuillez noter que «~» n'attend pas que l'on raffraichisse la page pour lancer la compilation (essayez de trouver ça dans la doc)
+{% endhighlight %}
+
+
+Il y a peut être un moyen de faire fonctionner çà, mais çà fonctionnait en play1.X, pourquoi pas en play2 ?
+
+Le système de routes est très verbeux, j'ai actuellement 80 lignes pour décrire les chemins de mon application.
+
+Exemple de routes :
+
+{% highlight java %}
+GET         /partenaires/:partenaireId/tarifs                      controllers.TarifsPrivate.index(partenaireId:Long)
+PUT         /partenaires/:partenaireId/tarifs                      controllers.TarifsPrivate.update(partenaireId:Long)
+POST         /partenaires/:partenaireId/tarifs                     controllers.TarifsPrivate.create(partenaireId:Long)
+DELETE      /partenaires/:partenaireId/tarifs                      controllers.TarifsPrivate.delete(partenaireId:Long, tarifId: Long)
+{% endhighlight %}
+
+
+L'utilisation de conventions permettrait de déclarer un CRUD en une seule ligne. Pourquoi ne pas s'inspirer des "resources rails":http://guides.rubyonrails.org/routing.html
+
+h2. Formations scala via Coursera
+
+Play2 m'a cependant permis de découvrir scala. J'ai testé d'autres langages par le passé, groovy, ruby, vb, ada, pascal, smalltalk...
+C'est scala qui m'a donné le plus de mal dans son apprentissage.
+J'ai alors suivi le cours via coursera qui met le pied à l'étrier. Je vous encourage ensuite à lire les guides de "Daniel Westheide pour continuer à apprendre scala":http://danielwestheide.com/scala/neophytes.html
+
+J'ai vraiment beaucoup aimé les concepts que sont :
+* Optionnal,
+* Either,
+* les API collections,
+* la programmation récursive,
+* le passage de fonction aux méthodes.
+
+h2. La lumière au bout du tunnel
+
+Depuis la version 2.1, les choses semblent s'améliorer, la plateforme gagne en maturité.
+Plus de problèmes de logs, les temps de compilation se réduisent.
+Des plateformes comme Cloudbees et Heroku permettent d'héberger facilement des applications play2.
+
+Ce blog et le système de réservation sont hébergées chez cloudbees, même si le build ne l'est pas encore.
+
+Les performances entre la version 2.0 et 2.1 se sont bien améliorées.
+
+Les templates = fonction est une très bonne idée, si un paramètre est manquant ou de type incorrect, il y aura une erreur de compilation.
+Ce fonctionnement est global à play2 (routes, fichiers de conf…).
+Et avec Scala et son typage fort, quand le code compile, il y a de fortes chance que le run se passe bien.
+
+h2. Conclusion
+
+Dans cet article j'ai surtout parlé des problèmes que j'ai pu rencontrer lors de ma découverte de play2. Si vous avez fait du play1.X et que vous voyez play2 comme une évolution, vous serez déçu.
+
+Le but de play2 n'est plus du tout le même, même si ce n'est pas clairement affiché.
+
+Play1.X  = productivité des développement,
+Play2.X = scalabilité des development, la productivité viendra quand vous maitriserez le framework.
+
+Et un dernier conseil, si vous ne voulez pas être dégoûté de play2, passez d'abord par la case coursera.
+
+Un dernier mot, la programmation fonctionnelle n'est pas cantonnée à scala, je vais bientôt publier une suite d'article expliquant comment ajouter un peu de "fonctionnel" dans vos applications java 6/7.
+
+Je vous invite à tester la version Scala du "système de réservation multitenant":http://ma-reservation.com/, celle-ci est en version alpha, n'hésitez pas à me faire part de vos retours.

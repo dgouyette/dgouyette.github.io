@@ -1,0 +1,116 @@
+---
+layout: post
+title:  "Programmation fonctionnelle : utiliser le type Either dans les applications java d'aujourd'hui"
+date:   2013-06-14 09:00:00
+categories: Programmation fonctionnelle
+---
+
+h2. Introduction
+
+Dans l'article précédent, je vous ai donné la définition suivante pour le type option :
+
+*Option* : type polymorphique représentant l’encapsulation d’une valeur optionnelle. Ce type est utilisé en retour de méthode pour signifier que celle-ci retourne ou non une *valeur significative*.
+
+Le type *Either* est l'encapsulation de l'appel à une méthode pouvant échouer.
+
+Exemple de validation d'un mot de passe :
+* Si le mot de passe est correct je continue,
+* Si cela ne se passe pas bien, je veux récupérer un message d'erreur que je pourrais afficher à l'utilisateur.
+
+Ci-dessous l'exemple de code :
+
+{% highlight java %}
+public void matchPassword(String pwd) {
+   if (pwd == null || "".equals(pwd))
+      throw new ValidationException("Invalid password");
+   //
+   // The password entered by the customer is not the same stored in database
+   if (!pwd.equals(password))
+      throw new ValidationException("Passwords don't match");
+    }
+{% endhighlight %}
+
+
+Le code de cette méthode indique que si le mot de passe est correct, ne rien faire. Si le mot de passe ne correspond pas, ou est vide, celle-ci va retourner une exception portant un message d'erreur.
+
+Si l'on regarde la signature de la méthode, celle ci ne retourne rien, et pas de checked exception en signature.
+Ce n'est pas "très expressif", voyons comment Either peux nous aider à rendre cette méthode plus parlante.
+
+
+h2. Définition de Either
+
+Either représente, tout comme le type option l'encapsulation de deux valeurs possibles.
+
+* Le traitement s'est bien passé (Right en anglais), la méthode va alors retourner Either.right(valeur),
+* Le traitement s'est mal passé, la méthode va alors retourner Either.left(valeur)
+
+
+h2. Exemple d'utilisation
+
+Si l'on reprend notre exemple de vérification de mot de passe, et qu'on le passe à la moulinette fonctionnelle.
+
+{% highlight java %}
+public Either<String, Void> matchPassword(String pwd) {
+        if (pwd == null || "".equals(pwd))
+            return Either.left("Invalid password");
+        // The password entered by the customer is not the same stored in database
+        if (!pwd.equals(password))
+            return Either.left("Passwords don't match");
+        return Either.right(null);
+    }
+{% endhighlight %}
+
+
+En se fiant uniquement à la signature de la méthode, on peut voir que :
+* si cela se passe bien, la méthode retourne right,
+* si cela ne se passe pas correctement celle ci retournera left avec le message d'erreur.
+
+Voyons maintenant comment cela se passe, si l'on se positionne comme client de cette méthode :
+
+Le code avant :
+
+{% highlight java %}
+@POST
+@Path("/category")
+@Consumes({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
+public Response createCategory(JAXBElement<Category> xmlCategory) {
+   Category category = catalogService.createCategory(xmlCategory.getValue());
+   URI uri = uriInfo.getAbsolutePathBuilder().path(category.getId().toString()).build();
+   return Response.created(uri).build();
+}
+{% endhighlight %}
+
+
+Le code après :
+
+{% highlight java %}
+ @POST
+ @Path("/category")
+ @Consumes({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
+ public Response createCategory(JAXBElement<Category> xmlCategory) {
+    Either<String, Category> categoryEither = catalogService.createCategory(xmlCategory.getValue());
+    if (categoryEither.isRight()) {
+       Category category = categoryEither.right().value();
+       URI uri = uriInfo.getAbsolutePathBuilder().path(category.getId().toString()).build();
+       return Response.created(uri).build();
+    }
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(categoryEither.left().value()).build();
+}
+{% endhighlight %}
+
+
+La nouvelle version permet en cas d'erreur de positionner un message d'erreur, en plus de définir le status code de la réponse à 500.
+
+h2. Conclusion :
+
+Nous avons vu dans l'exemple précédent qu'Either pouvait avantageusement remplacer l'usage traditionnel que nous faisons des exceptions.
+
+Souvent dans une application web, les exceptions nous servent uniquement à transporter des messages d'erreurs que nous souhaitons afficher à l'utilisateur.
+
+Either propose une alternative élégante à ce mode de fonctionnement.
+
+h2. Références :
+
+"Functional thinking: Functional error handling with Either and Option":http://www.ibm.com/developerworks/library/j-ft13/
+
+"Either javadoc":http://functionaljava.googlecode.com/svn/artifacts/3.0/javadoc/fj/data/Either.html

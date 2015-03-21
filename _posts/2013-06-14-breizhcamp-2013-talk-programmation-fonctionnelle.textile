@@ -1,0 +1,20 @@
+---
+layout: post
+title:  "BreizhCamp 2013 : talk sur la programmation fonctionnelle"
+date:   2013-06-14 09:00:00
+categories: Programmation fonctionnelle
+---
+
+
+!/images/Q14zHFvMxhzFAN0l2jonsCW4cfAC3wTit3rA4DA41Kc.png!
+
+
+J'ai  présenté au BreizhCamp 2013, une approche possible pour la mise en place de la programmation fonctionnelle avec du java d'aujourd'hui, java 6 ou 7.
+
+Le code source est disponible sur github :
+
+"https://github.com/dgouyette/breizhcamp2013":https://github.com/dgouyette/breizhcamp2013
+
+La présentation est disponible sur slideshare :
+
+"http://fr.slideshare.net/cestpasdur/breizh-camp2013-programmationfonctionellejava":http://fr.slideshare.net/cestpasdur/breizh-camp2013-programmationfonctionellejava

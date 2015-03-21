@@ -1,0 +1,87 @@
+---
+layout: post
+title:  "Switcher d'une version de play à une autre via homebrew sous MACOS"
+date:   2012-11-23 09:00:00
+categories: macos
+---
+
+
+Si comme moi vous gérez la maintenance  d'applications play 1.2 et play 2 vous devez régulièrement basculer d'une version à une autre du framework.
+
+Il est possible de faire çà directement en modifiant la path  afin qu'il pointe sur la bonne version de play.
+
+Mais il existe une solution plus simple, homebrew peut venir à votre rescousse.
+
+h3. Installer brew
+
+{% highlight java %}
+ruby -e "$(curl -fsSL https://raw.github.com/mxcl/homebrew/go)"
+{% endhighlight%}
+
+
+Cette outil est présenté plus en détail ici :
+"(http://mxcl.github.io/homebrew/)":http://mxcl.github.io/homebrew/
+
+h3. Récupérer les versions existantes des applications à installer
+
+{% highlight sh %}
+brew tap homebrew/versions
+{% endhighlight %}
+
+
+h3. installer play 1.2
+
+{% highlight sh %}
+brew install play12
+{% endhighlight %}
+
+h3. installer play2
+
+{% highlight sh %}
+brew install play
+{% endhighlight %}
+
+
+h3. basculer d'une version à une autre
+
+{% highlight sh %}
+brew unlink play
+brew link play12
+{% endhighlight %}
+
+
+h3. Gérer les versions releases candidate.
+
+Une formula (élément sur lequel se base hombrew pour faire une installation) perso vous permettra d'installer une version non releasée.
+
+Il vous suffit ensuite de déposer le code de cette formula sur github (si vous souhaitez la releaser, comme ici :
+"https://gist.github.com/dgouyette/5276274":https://gist.github.com/dgouyette/5276274
+
+{% highlight sh %}
+# Recipe for play-2.1.1-RC2
+require 'formula'
+class Play < Formula
+  homepage 'http://www.playframework.org/'
+  #url de telechagement
+  url 'http://downloads.typesafe.com/play/2.1.1-RC2/play-2.1.1-RC2.zip'
+  md5 'ef4b378dae9c6a8711f9f5395e626ca3'
+  #version installee
+  version '2.1.1-RC2'
+  def install
+    rm Dir['*.bat'] # remove windows' bat files
+    libexec.install Dir['*']
+    inreplace libexec+"play" do |s|
+      s.gsub! "$dir/", "$dir/../libexec/"
+      s.gsub! "dir=`dirname $PRG`", "dir=`dirname $0` && dir=$dir/`dirname $PRG`"
+    end
+    bin.install_symlink libexec+'play'
+  end
+end
+{% endhighlight %}
+
+
+Pour utiliser cette formula, lancer la commande suivante :
+
+{% highlight sh %}
+brew install emplacement_formula.rb
+{% endhighlight %}
