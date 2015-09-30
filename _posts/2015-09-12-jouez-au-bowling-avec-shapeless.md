@@ -38,7 +38,7 @@ Listes hétérogènes (HList)
 ------------------
 Une **HList** est un tuple de longueur arbitraire.
 
-Définition de deux alias de type :
+Afin de stocker les informations des manches, nous allons devoir définir deux alias de type :
 
 {% highlight scala %}
 //les manches peuvent avoir 1 ou 2 boules
@@ -50,9 +50,7 @@ type Round = Int :: Int :: HNil
 type LastRound  Int :: Int :: Int :: HNil
 {% endhighlight%}
 
-Round et LastRound sont des sous-type d'une HList.
-
-Nous utiliserons le **polymorphisme** pour les manipuler toutes les deux.
+Round et LastRound sont des sous-types d'une HList.
 
 Rappel sur le polymorphisme
 ----------------------------------------------
@@ -73,11 +71,18 @@ Score d'une manche
 
 Le polymorphisme paramétré associé à une fonction de conversion implicite nous permettra de manipuler facilement les types **Round** et **LastRound**.
 
-Dans notre cas, nous devons calculer un **Score** à partir d'une **manche**
+Dans notre cas, nous devons calculer un **Score** à partir d'un **Round** ou d'un **LastRound**.
 
-La fonction de conversion Score permet de passer du type Round ou LastRound à Int.
-Ici Round et LastRound sont également des HList, ce qui nous permet d'utiliser la fonction **sum**.
+* La fonction de conversion implicit **caseRound**  permet de passer du type Round  à Int.
+* La fonction de conversion implicit **caseLastRound**  permet de passer du type LastRound  à Int.
 
+Round et LastRound sont également des HList, ce qui nous permet d'utiliser la même fonction **sum**.
+
+{% highlight scala  %}
+  Score(3::1::HNil) shouldEqual 4
+{% endhighlight scala %}
+
+Le paramètre d'entrée (ici un Round qui est aussi une HList) sera passé à la fonction sum qui nous retournera finalement un **Int**
 
 {% highlight scala  %}
 object Score extends Poly1 {
