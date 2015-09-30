@@ -261,5 +261,4 @@ Références :
 * [Code source de la solution](https://gist.github.com/dgouyette/bbf941d34e1a14c901ea)
 * [https://github.com/milessabin/shapeless](https://github.com/milessabin/shapeless)
 * [Feature overview Shapeless](https://github.com/milessabin/shapeless/wiki/Feature-overview:-shapeless-2.0.0)
-* [https://fr.wikipedia.org/wiki/Polymorphisme_(informatique)](https://fr.wikipedia.org/wiki/Polymorphisme_(informatique))
 * [http://scala.org.ua/presentations/scala-polymorphism/](http://scala.org.ua/presentations/scala-polymorphism/)
