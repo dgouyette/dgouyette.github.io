@@ -251,8 +251,7 @@ Pro/Cons
 
 * Aucun scaladoc (au moins sur les Poly* et HList).
 * La [documentation](https://github.com/milessabin/shapeless/wiki/Feature-overview:-shapeless-2.0.0) a été difficile à trouver, et elle ne s'applique pas à la version courante de Shapeless.
-* Les erreurs de compilation ne sont pas détectées par l'IDE (IntelliJ).
-* Il faut lancer les TU pour obtenir les erreurs de compilation, qui sont généralement des implicits manquants ou ambigüs.
+* Les erreurs de compilation ne sont pas détectées par l'IDE (IntelliJ),  il faut lancer les TU pour obtenir les erreurs de compilation, qui sont généralement des implicits manquants ou ambigüs.
 
 
 
