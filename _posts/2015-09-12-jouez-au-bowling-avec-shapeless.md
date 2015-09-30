@@ -9,8 +9,8 @@ categories: scala, Shapeless
 Préambule
 ----------
 Cet article est la synthèse d'un [kata](http://butunclebob.com/ArticleS.UncleBob.TheBowlingGameKata) realisé à Vidal.
-Cet exercice a été réalisé  pour découvrir la librairie Shapeless.
-Afin de sortir des exemples académiques, nous sommes partis sur un cas d'usage pouvant s'y prêter.
+Cet exercice a été réalisé  afin de découvrir (un peu) la librairie Shapeless.
+Afin de sortir des exemples académiques, nous sommes partis sur un cas d'usage ludique pouvant s'y prêter.
 
 Les personnes ayant participé :
 
@@ -73,8 +73,8 @@ Le polymorphisme paramétré associé à une fonction de conversion implicite no
 
 Dans notre cas, nous devons calculer un **Score** à partir d'un **Round** ou d'un **LastRound**.
 
-* La fonction de conversion implicit **caseRound**  permet de passer du type Round  à Int.
-* La fonction de conversion implicit **caseLastRound**  permet de passer du type LastRound  à Int.
+* La fonction de conversion implicite **caseRound**  permet de passer du type Round  à Int.
+* La fonction de conversion implicite **caseLastRound**  permet de passer du type LastRound  à Int.
 
 Round et LastRound sont également des HList, ce qui nous permet d'utiliser la même fonction **sum**.
 
