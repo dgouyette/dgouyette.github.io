@@ -2,7 +2,7 @@
 layout: post
 title:  "Bowling avec Shapeless"
 date:   2015-09-25 09:00:00
-categories: scala, Shapeless
+categories: scala Shapeless
 ---
 
 
