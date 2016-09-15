@@ -305,6 +305,8 @@ Martin ODERSKY a  annoncé lors du dernier Scala Days que les macros seraient ab
 
 Mais le besoin de générer du code est un vrai besoin. Scala-meta est là pour pallier à ce genre de problème.
 
+Merci à [Benjamin Mironer](https://github.com/bmironer) et [Loïc Descotte](https://github.com/loicdescotte) pour leur relecture.
+
 En savoir +
 ----------
 *  [Code source du premier cas pratique : git-info](https://github.com/dgouyette/git-info)
