@@ -1,11 +1,11 @@
 ---
 layout: page
-title: About
+title: A propos
 permalink: /about/
 ---
 
-This is the base Jekyll theme. You can find out more info about customizing your Jekyll theme, as well as basic Jekyll usage documentation at [jekyllrb.com](http://jekyllrb.com/)
 
-You can find the source code for the Jekyll new theme at: [github.com/jglovier/jekyll-new](https://github.com/jglovier/jekyll-new)
+Vous pouvez me contacter au coordonnées suivantes :
 
-You can find the source code for Jekyll at [github.com/jekyll/jekyll](https://github.com/jekyll/jekyll)
+Pour l'application targetkeeper <a href="mailto:damien.gouyette+targetkeeper@gmail.com">contactez-moi</a><br/>
+Pour autre chose <a href="mailto:damien.gouyette@gmail.com">contactez-moi</a>

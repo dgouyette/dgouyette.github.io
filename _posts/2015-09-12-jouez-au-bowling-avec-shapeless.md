@@ -6,6 +6,9 @@ categories: scala Shapeless
 ---
 
 
+* TOC
+{:toc}
+
 Préambule
 ----------
 Cet article est la synthèse d'un [kata](http://butunclebob.com/ArticleS.UncleBob.TheBowlingGameKata) realisé à Vidal.
@@ -255,7 +258,7 @@ Pro/Cons
 
 
 
-Références :
+Références
 -----------
 * [Code source de la solution](https://gist.github.com/dgouyette/bbf941d34e1a14c901ea)
 * [https://github.com/milessabin/shapeless](https://github.com/milessabin/shapeless)
